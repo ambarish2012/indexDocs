@@ -14,60 +14,70 @@ var marked = require('marked');
 var renderer = new marked.Renderer();
 var he = require('he');
 var gbag = null;
-var gcounter = 0;
+var headingCounter = 0;
+var listItemsCounter = 0;
+var paragraphCounter = 0;
+var codeCounter = 0;
+var currentHeading = null;
 
 renderer.heading = function (text, level) {
-    var heading = _removeExtraWhiteSpace(text);
-    var hashTag = heading.replace(/ /g, '-').toLowerCase();
-    var link = gbag.data.page_baselink + "/#" + hashTag
-
-    var data = gbag.data;
-    for (var property in data) {
-        if (data.hasOwnProperty(property) && property.startsWith("page_heading")) {
-            if (data[property]) {
-            } else {
-                data[property] = heading;
-                data.page_map[property] = link;
-                break;
-            }
-        }
-    }
-
-    for (var property in data) {
-        if (data.hasOwnProperty(property) && property.startsWith("page_link")) {
-            if (data[property]) {
-            } else {
-                data[property] = link;
-                break;
-            }
-        }
-    }
-
+    _addHeading(text);
     return "";
 }
+
+
 
 renderer.paragraph = function (text) {
     if (text.match(/main_section/g) != null) {
         var arr = text.split(/\r?\n/);
+
         gbag.data.main_section = arr[0].split(/:/)[1];
         gbag.data.sub_section = arr[1].split(/:/)[1];
+
+        // gbag.data.sub_sub_section_section = arr[2].split(/:/)[1];
     } else {
-        gbag.data.page_paragraph += _removeTagsAndExtraWhiteSpace(text);
-        gbag.data.page_paragraph += ' ';
+        var paragraph = _removeTagsAndExtraWhiteSpace(text);
+
+        if (paragraph.trim().length > 0) {
+            // check if sub headings
+            if (paragraph.startsWith("#")) {
+                // remove #
+                paragraph = paragraph.substring(paragraph.match(/^#*/)[0].length);
+                _addHeading(paragraph);
+            } else {
+                paragraphCounter++;
+                var property = "paragraph" + paragraphCounter;
+
+                gbag.data.page_paragraphs[property] = paragraph;
+                gbag.data.paragraphs_link_map[property] = currentHeading;
+            }
+        }
     }
 
     return "";
 }
 
 renderer.listitem = function (text) {
-    gbag.data.page_listitem += _removeTagsAndExtraWhiteSpace(text);
-    gbag.data.page_listitem += ' ';
+    var list_item = _removeTagsAndExtraWhiteSpace(text);
+
+    if (list_item.trim().length > 0) {
+        listItemsCounter++;
+        var property = "list_item" + listItemsCounter;
+        gbag.data.page_listitems[property] = list_item;
+        gbag.data.listitems_link_map[property] = currentHeading;
+    }
+
     return "";
 }
 
 renderer.code = function (code, language) {
-    gbag.data.page_code += _replaceNewLinesWithSpaces(code);
-    gbag.data.page_code += ' ';
+    var code_snippet = _replaceNewLinesWithSpaces(code);
+
+    codeCounter++;
+    var property = "code" + codeCounter;
+    gbag.data.page_code_snippets[property] = code_snippet;
+    gbag.data.code_snippets_link_map[property] = currentHeading;
+
     return "";
 }
 
@@ -75,50 +85,45 @@ renderer.code = function (code, language) {
 // marked(contents, { renderer: renderer });
 
 //glob("docs/sources/**/*.md", function(err, res) {
-glob("*.md", function(err, res) {
+glob("docs/sources/**/*.md", function(err, res) {
     if (err)
         console.log('Error while getting the files');
     filePaths = res;
     async.eachSeries(filePaths,
         function (filePath, callback) {
+
+            headingCounter = 0;
+            listItemsCounter = 0;
+            paragraphCounter = 0;
+            codeCounter = 0;
+
             var path = filePath;
             var data = {
                 page_name: '',
                 main_section: '',
                 sub_section: '',
-                page_heading1: '',
-                page_heading2: '',
-                page_heading3: '',
-                page_heading4: '',
-                page_heading5: '',
-                page_heading6: '',
-                page_heading7: '',
-                page_heading8: '',
-                page_heading9: '',
-                page_heading0: '',
-                page_link1: '',
-                page_link2: '',
-                page_link3: '',
-                page_link4: '',
-                page_link5: '',
-                page_link6: '',
-                page_link7: '',
-                page_link8: '',
-                page_link9: '',
-                page_link0: '',
-                page_paragraph: '',
-                page_listitem: '',
-                page_code: '',
+                sub_sub_section: '',
+                page_main_heading: null,
+                page_headings: new Object(),
+                page_paragraphs: new Object(),
+                page_listitems: new Object(),
+                page_code_snippets: new Object(),
                 page_baselink: '',
-                page_map: new Object()
+                headings_link_map: new Object(),
+                paragraphs_link_map: new Object(),
+                listitems_link_map: new Object(),
+                code_snippets_link_map: new Object()
             };
+
             data.page_name = path.replace('docs/sources/', '');
             data.page_name = data.page_name.replace('.md', '');
             data.page_baselink = 'http://rcdocs1.shippable.com/' + data.page_name;
+
             var bag = {
                 filePath: filePath,
                 data: data
             };
+
             async.series([
                     _parseFileMD.bind(null, bag)
                 ],
@@ -132,12 +137,33 @@ glob("*.md", function(err, res) {
         function (err) {
             if (err)
                 console.log('failed');
+
             var json = JSON.stringify(searchJSON);
             console.log(json);
+
             fs.writeFile('output.json', json);
         }
     );
 });
+
+function _addHeading(text) {
+    var heading = _removeExtraWhiteSpace(text);
+    var hashTag = heading.replace(/ /g, '-').toLowerCase();
+    var link = gbag.data.page_baselink + "/#" + hashTag
+
+    var property = null;
+    if (gbag.data.page_main_heading == null) {
+        property = "page_main_heading";
+        gbag.data.page_main_heading = heading;
+    } else {
+        headingCounter++;
+        property = "heading" + headingCounter;
+        gbag.data.page_headings[property] = heading;
+    }
+
+    gbag.data.headings_link_map[property] = link;
+    currentHeading = heading;
+}
 
 function _removeTagsAndExtraWhiteSpace(string) {
     var re = /<(?:[^>=]|='[^']*'|="[^"]*"|=[^'"][^\s>]*)*>/gi;
