@@ -12,9 +12,9 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
       #echo $component
       if [[ "$token" == 1 ]]; then
         #create the file
-        indexfile=./test/$component/index.html
+        indexfile=./$2/$component/index.html
         #echo $indexfile
-        mkdir -p ./test/$component && touch $indexfile
+        mkdir -p ./$2/$component && touch $indexfile
       else
         #add redirect command to file
         ecapedValue=$(echo ${component} | sed -e "s#/#\\\/#g")
