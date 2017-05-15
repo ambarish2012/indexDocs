@@ -121,7 +121,7 @@ function parseDocsYml() {
 
                 data.page_name = path.replace('docs/sources/', '');
                 data.page_name = data.page_name.replace('.md', '');
-                data.page_baselink = 'http://rcdocs1.shippable.com/' + data.page_name;
+                data.page_baselink = 'http://docs.shippable.com/' + data.page_name;
 
                 var bag = {
                     filePath: filePath,
@@ -225,6 +225,33 @@ function parseMkDocsYml() {
     });
 }
 
+function parseMkDocsV2Yml() {
+    try {
+        const config = yaml.safeLoad(fs.readFileSync('docsv2/mkdocs.yml', 'utf8'));
+        iterate(config, '')
+    } catch (e) {
+        console.log(e);
+    }
+
+    var stream = fs.createWriteStream("mapping.txt");
+    stream.on("finish", function() {
+    });
+
+    async.forEach(Object.keys(propertyMap), function (key, callback){
+        var url = "http://docs.shippable.com/" + key;
+        url = url.split(/\.md/)[0];
+        stream.write(url+"\n");
+
+        // tell async that that particular element of the iterator is done
+        callback();
+
+    }, function(err) {
+        console.log('iterating done');
+    });
+
+    stream.end();
+}
+
 function writeToStartOfFile(file, pageTitle) {
     var data = fs.readFileSync(file, "utf-8"); //read existing contents into data
 
@@ -277,4 +304,5 @@ function iterateObject(obj) {
     }
 }
 
+//parseMkDocsV2Yml();
 parseDocsYml();
