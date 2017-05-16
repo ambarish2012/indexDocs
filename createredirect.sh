@@ -14,7 +14,8 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
         #create the file
         indexfile=./$2/$component/index.html
         #echo $indexfile
-        mkdir -p ./$2/$component && touch $indexfile
+        mkdir -p ./$2/$component
+        touch $indexfile
       else
         #add redirect command to file
         ecapedValue=$(echo ${component} | sed -e "s#/#\\\/#g")
